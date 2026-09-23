@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Every language job runs its examples against the local mock API (mock/server.mjs), never
+# the live API, via scripts/with-mock.sh. See CONVENTIONS.md for the job shape.
+
+jobs:
+  repo:
+    name: Mock and shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Check the mock scripts parse
+        run: |
+          node --check mock/server.mjs
+          node --check mock/send-webhook.mjs
+      - name: ShellCheck
+        run: shellcheck -x -P SCRIPTDIR scripts/*.sh curl/*/example.sh */run-examples.sh
+
+  curl:
+    name: curl
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh curl/run-examples.sh
+
+  node:
+    name: Node.js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: node/package-lock.json
+      - name: Install dependencies
+        working-directory: node
+        run: npm ci
+      - name: Type-check
+        working-directory: node
+        run: npm run lint
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh node/run-examples.sh
+
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+      - name: Install dependencies
+        run: pip install -r python/requirements.txt ruff
+      - name: Lint
+        working-directory: python
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh python/run-examples.sh
+
+  php:
+    name: PHP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: curl
+          coverage: none
+      - name: Lint
+        run: for f in php/*/index.php; do php -l "$f"; done
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh php/run-examples.sh
+
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.23"
+          cache: false
+      - name: Vet and build
+        working-directory: go
+        run: |
+          go vet ./...
+          go build ./...
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh go/run-examples.sh
+
+  java:
+    name: Java
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Fetch dependencies and compile
+        working-directory: java
+        run: |
+          mvn -q dependency:copy-dependencies
+          for f in */Main.java; do javac -cp 'target/dependency/*' -d "$RUNNER_TEMP/javac/${f%%/*}" "$f"; done
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh java/run-examples.sh
+
+  csharp:
+    name: C#
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Build
+        working-directory: csharp
+        run: for p in */*.csproj; do dotnet build "$p" --nologo -v quiet; done
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh csharp/run-examples.sh
+
+  ruby:
+    name: Ruby
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: ruby
+      - name: Syntax check
+        run: for f in ruby/*/main.rb; do ruby -wc "$f"; done
+      - name: Run the examples against the mock
+        run: scripts/with-mock.sh ruby/run-examples.sh

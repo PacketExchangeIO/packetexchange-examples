@@ -1,0 +1,21 @@
+{
+  "name": "packetexchange-examples-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PacketExchange API examples in TypeScript for Node.js 22",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^5.9.2"
+  }
+}

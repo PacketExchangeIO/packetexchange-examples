@@ -1,0 +1,5 @@
+source "https://rubygems.org"
+
+# The API examples use only the standard library. The webhooks server needs WEBrick,
+# which is no longer bundled with Ruby since 3.0.
+gem "webrick", "~> 1.8"
