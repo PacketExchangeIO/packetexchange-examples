@@ -96,8 +96,8 @@ async function main(): Promise<void> {
   console.log(`  segments: ${sent.segments}`);
   console.log(`  cost: ${sent.cost}`);
 
-  // The status is the send-time outcome (accepted, sent or failed). Handset delivery
-  // receipts are not collected, which `dlrSupported: false` states explicitly.
+  // The send response is the send-time outcome (accepted, sent or failed). Delivery is
+  // confirmed later by a carrier receipt, when the route returns one: see sms-status.
   const { data: status } = await api<{ data: SmsStatus }>('GET', `/comms/sms/${encodeURIComponent(sent.messageId)}`);
   console.log(`Status lookup: ${status.status}`);
   console.log(`  dlrSupported: ${status.dlrSupported ?? false}`);

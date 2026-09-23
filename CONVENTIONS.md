@@ -24,8 +24,11 @@ Example folder names are identical in every language:
 | `verify-sms` | `POST /verify/start` (channel `sms`), then `POST /verify/check` |
 | `verify-voice` | The same with channel `voice` |
 | `send-sms` | `POST /comms/sms`, then `GET /comms/sms/{messageId}` |
+| `sms-status` | `GET /comms/sms/{messageId}`, printing the delivery timeline |
 | `make-call` | `POST /comms/calls`, then the matching entry in `GET /comms/calls` |
+| `call-with-actions` | `POST /comms/calls` with `async` and `actions`, then poll `GET /comms/calls/{id}` |
 | `price-a-number` | `GET /routes/price-number`, then `GET /routes/resolve` per strategy |
+| `number-lookup` | `GET /lookup/{number}` |
 | `webhooks` | A minimal HTTP server that verifies webhook signatures |
 | `phone-numbers` | `GET /dids/search`, `POST /dids/buy`, `PATCH /dids/{id}/routing` |
 | `ai-voice-agent` | `GET /ai-agents/voices`, `POST /ai-agents`, `POST /ai-agents/{id}/simulate`, optional `PUT /dialer/campaigns/{id}` |
@@ -185,6 +188,40 @@ Default type `voice`.
    or `Strategy <strategy>: no route` when `selected` is null.
    `<unit>` is `min` for voice and `msg` for SMS.
 
+### sms-status `<message-id>`
+
+1. `GET /comms/sms/{messageId}`. If `status` is `not_found`, print
+   `No message <message-id> on this account.` to stderr and exit `1`. Otherwise print
+   `Message <messageId>: <status>`, then one line per `timeline` step
+   `  - <status> at <at> (<source>[, <carrierStatus>][, <errorCode>])`, then
+   `  errorCode: <errorCode>` only when it is set, `  awaitingReceipt: <true|false>` (`false`
+   when absent) and `  routeReturnsReceipts: <true|false|unknown>` (`unknown` when null).
+
+### call-with-actions `<to> <caller-id>`
+
+1. `POST /comms/calls` `{ "to", "from": <caller-id>, "maxDuration": 120, "async": true, "language": "en", "actions" }`
+   with these actions: `{ "say": "Hello, this is Riverside Clinic calling about your appointment tomorrow at 10:30." }`,
+   `{ "gather": { "digits": 1, "timeout": 5, "say": "Press 1 to confirm, or 2 if you need to reschedule." } }`,
+   `{ "say": "Thank you. Goodbye." }`. A live key answers `202` with `status` `ringing`; a test key
+   answers `200` with the finished, simulated call. Print `Call placed: <callId> (status <status>)`.
+2. Poll `GET /comms/calls/{callId}`: request immediately, then every 2 seconds, for at most
+   5 minutes, until `status` is `completed`, `no_answer`, `busy` or `failed`. Print
+   `  status: <status>` each time it changes. Then print `Call ended: <status>`,
+   `  durationSeconds: <durationSeconds or 0>`, `  cost: <cost or none>`,
+   `  hangupReason: <hangupReason or none>` and `  keyPressed: <digits of the gathered entry with index 0, or none>`.
+   On timeout print `Still running after 5 minutes; check GET /comms/calls/<callId> later.` and exit `0`.
+
+### number-lookup `<number>`
+
+1. `GET /lookup/{number}` with the number percent-encoded (`+` as `%2B`). If `valid` is false, print
+   `Not a valid number: <reason>` and exit `0`. Otherwise print `<e164> (<internationalFormat>)`, then
+   `  country: <country.name> (<country.iso, or shared dial code>)` (`unknown` when `country` is null),
+   `  numberType: <numberType>`, `  network: <network.operator or unknown>`,
+   `  risk: blocked <true|false>, highRisk <true|false>`, one `    - <reason>` line per `risk.reasons`
+   entry, then for `voice` and `sms`:
+   `  <voice|sms>: <rate>/<unit> via <routeId> (<routesServing> routes serve it)`, or
+   `  <voice|sms>: no route` when the price is null.
+
 ### webhooks
 
 An HTTP server on `PORT` accepting `POST /webhooks` (anything else: `404`).
@@ -296,6 +333,12 @@ Mock fixtures to test against:
   send, which is the standard negative case.
 - `phone-numbers search` returns groupId `6a1f7c0e-3b4d-4c55-9a8e-2f0d9c1b7e21` with skuId `b2c4e6f8-1a3c-4e5f-8a9b-0c1d2e3f4a5b`.
 - Any UUID works as a route id, DID id or campaign id; a malformed id returns `400`.
+- Keys starting `wmmn_live_sk_` behave like live keys: an async call answers `202` and moves one
+  step (`ringing`, `answered`, `completed`) at each `GET /comms/calls/{id}`, and each `gather`
+  reports the key `1`.
+- Message id `5d0c8a1e-2f3b-4c6d-9e7f-8a9b0c1d2e3f` is a delivered message with a carrier receipt.
+- `GET /lookup/{number}` models UK mobiles (`+447...`), US numbers (`+1...`) and an embargoed
+  destination (`+53...`).
 - x402: the challenge is for network `base`; the mock checks the payment's structure,
   amount, recipient and validity window, and reports a fake transaction hash.
 
@@ -318,6 +361,13 @@ Required cases in every `run-examples.sh` (skip `x402-topup` outside node and py
 | `phone-numbers route <uuid> sip sip.example.com:5060` | 0 |
 | `ai-voice-agent` and `ai-voice-agent <uuid>` | 0 |
 | `caller-id-test <uuid> +14155550199 "United States"` | 0 |
+| `number-lookup +447700900123` | 0, prints `sms: 0.005900/msg` |
+| `number-lookup 07700900123` | 0, prints `Not a valid number:` |
+| `call-with-actions +14155550100 +14155550199` with `PACKETEXCHANGE_API_KEY=wmmn_live_sk_mock` | 0, prints `keyPressed: 1` |
+| `call-with-actions +14155550100 +14155550199` (test key) | 0, prints `keyPressed: none` |
+| `call-with-actions +15005550000 +14155550199` | 1, prints `Error 400 VALIDATION_ERROR` |
+| `sms-status 5d0c8a1e-2f3b-4c6d-9e7f-8a9b0c1d2e3f` | 0, prints `delivered at` |
+| `sms-status <uuid>` | 1, prints `No message <uuid>` |
 | `x402-topup 25` | 2 |
 | `x402-topup 25 --confirm` (with a throwaway `X402_PRIVATE_KEY` generated at runtime) | 0 |
 | `webhooks` via `send-webhook.mjs` | 0 |

@@ -10,6 +10,7 @@ source ../scripts/lib.sh
 group=6a1f7c0e-3b4d-4c55-9a8e-2f0d9c1b7e21
 sku=b2c4e6f8-1a3c-4e5f-8a9b-0c1d2e3f4a5b
 some_id=3d4c2b1a-9e8f-4a7b-8c6d-5e4f3a2b1c0d
+delivered_sms=5d0c8a1e-2f3b-4c6d-9e7f-8a9b0c1d2e3f
 
 expect_output 0 "Check result: approved" ./verify-sms/example.sh +14155550100 <<<"123456"
 expect_output 0 "Check result: denied (wrong_code)" ./verify-sms/example.sh +14155550100 <<<"000000"
@@ -28,6 +29,14 @@ expect_output 0 "now routes to sip sip.example.com:5060" ./phone-numbers/example
 expect_output 0 "Simulated reply:" ./ai-voice-agent/example.sh
 expect_output 0 "Attached agent to campaign $some_id" ./ai-voice-agent/example.sh "$some_id"
 expect_output 0 "displayedCorrectly: true" ./caller-id-test/example.sh "$some_id" +14155550199 "United States"
+expect_output 0 "sms: 0.005900/msg" ./number-lookup/example.sh +447700900123
+expect_output 0 "Not a valid number:" ./number-lookup/example.sh 07700900123
+# A live-style key makes the mock answer 202 and move the call on at each status read.
+PACKETEXCHANGE_API_KEY=wmmn_live_sk_mock expect_output 0 "keyPressed: 1" ./call-with-actions/example.sh +14155550100 +14155550199
+expect_output 0 "keyPressed: none" ./call-with-actions/example.sh +14155550100 +14155550199
+expect_output 1 "Error 400 VALIDATION_ERROR" ./call-with-actions/example.sh +15005550000 +14155550199
+expect_output 0 "delivered at" ./sms-status/example.sh "$delivered_sms"
+expect_output 1 "No message $some_id" ./sms-status/example.sh "$some_id"
 
 expect_output 2 "Set PACKETEXCHANGE_API_KEY first" env -u PACKETEXCHANGE_API_KEY ./send-sms/example.sh +14155550100 Riverside
 

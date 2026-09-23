@@ -109,8 +109,8 @@ echo "  status: {$sent['status']}" . PHP_EOL;
 echo "  segments: {$sent['segments']}" . PHP_EOL;
 echo "  cost: {$sent['cost']}" . PHP_EOL;
 
-// The status is the send-time outcome (accepted, sent or failed). Handset delivery
-// receipts are not collected, which `dlrSupported: false` states explicitly.
+// The send response is the send-time outcome (accepted, sent or failed). Delivery is
+// confirmed later by a carrier receipt, when the route returns one: see sms-status.
 $status = api('GET', '/comms/sms/' . rawurlencode($sent['messageId']))['data'];
 echo "Status lookup: {$status['status']}" . PHP_EOL;
 echo '  dlrSupported: ' . (($status['dlrSupported'] ?? false) ? 'true' : 'false') . PHP_EOL;

@@ -45,8 +45,8 @@ func main() {
 	fmt.Printf("  segments: %d\n", sent.Data.Segments)
 	fmt.Printf("  cost: %s\n", sent.Data.Cost)
 
-	// The status is the send-time outcome (accepted, sent or failed). No handset
-	// delivery receipts are collected, which dlrSupported makes explicit.
+	// The send response is the send-time outcome (accepted, sent or failed). Delivery is
+	// confirmed later by a carrier receipt, when the route returns one: see sms-status.
 	var lookup struct {
 		Data struct {
 			Status       string `json:"status"`

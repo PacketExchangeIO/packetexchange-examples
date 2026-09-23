@@ -42,8 +42,11 @@ Each example prints a usage line when run without arguments. Lint with `go vet .
 | [`verify-sms`](verify-sms) | Send a one-time code by SMS and check it |
 | [`verify-voice`](verify-voice) | Send a one-time code by voice call and check it |
 | [`send-sms`](send-sms) | Send a transactional SMS and read its status |
+| [`sms-status`](sms-status) | Read an SMS's delivery status and timeline |
 | [`make-call`](make-call) | Place a call and read its outcome and cost |
+| [`call-with-actions`](call-with-actions) | Place a call that speaks and collects a key press, then follow it |
 | [`price-a-number`](price-a-number) | Rank routes by real cost for a number and preview routing |
+| [`number-lookup`](number-lookup) | Look up a number's type, network, risk flags and cheapest price |
 | [`webhooks`](webhooks) | Verify webhook signatures |
 | [`phone-numbers`](phone-numbers) | Search, buy (with `--confirm`) and route a phone number |
 | [`ai-voice-agent`](ai-voice-agent) | Create an AI voice agent and attach it to a campaign |

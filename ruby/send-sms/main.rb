@@ -22,8 +22,8 @@ def main(args)
   # cost is a 6-decimal USD string; keep it as a string rather than a float.
   puts "  cost: #{sent['cost']}"
 
-  # The status is the send-time outcome (accepted, sent or failed). No handset
-  # delivery receipts are collected, which dlrSupported makes explicit.
+  # The send response is the send-time outcome (accepted, sent or failed). Delivery is
+  # confirmed later by a carrier receipt, when the route returns one: see sms-status.
   lookup = api_request("GET", "/comms/sms/#{URI.encode_www_form_component(sent['messageId'])}")["data"]
   puts "Status lookup: #{lookup['status']}"
   puts "  dlrSupported: #{lookup['dlrSupported'] == true}"

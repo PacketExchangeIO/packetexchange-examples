@@ -26,7 +26,7 @@ Free. Receiving webhooks costs nothing.
 
 ## Set up
 
-Create a webhook endpoint in the [dashboard](https://packetexchange.io/dashboard), choose its events (for example `sms.sent`, `call.completed`, `number.sms.received`) and copy the signing secret, which is shown once. Endpoint URLs must be `https` and publicly reachable; during development, expose your local server through a tunnel.
+Create a webhook endpoint in the [dashboard](https://packetexchange.io/dashboard), or with `POST /account/webhooks` using an API key created with the `webhooks:write` permission (a full-access key does not include it). Choose its events (for example `sms.delivered`, `call.completed`, `number.sms.received`) and copy the signing secret, which is shown once. Endpoint URLs must be `https` and publicly reachable; during development, expose your local server through a tunnel.
 
 ## Run
 

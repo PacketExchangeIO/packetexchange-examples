@@ -10,7 +10,7 @@ Billed after the call ends: billable seconds, rounded up to the route billing in
 
 - `status` is `answered`, `no_answer`, `busy` or `failed`. With a test key nothing is dialled and the status is `accepted`.
 - `from` is the caller ID to present, in E.164 format. Present only caller IDs you are entitled to use.
-- The `call.completed` webhook event reports each finished call.
+- The `call.completed` webhook event reports each finished call. To return at once and follow the call, or to make it speak and collect key presses, see the [call-with-actions](../call-with-actions) example.
 - Placing calls needs the `voice:send` scope. The call history is not available to scoped keys; use a full-access key.
 
 ## Run

@@ -78,7 +78,7 @@ message_id="$(jq -r '.data.messageId' <<<"$sent")"
 jq -r '.data | "Message submitted: \(.messageId)", "  status: \(.status)", "  segments: \(.segments)",
   "  cost: \(.cost)"' <<<"$sent"
 
-# The status is the send-time outcome (accepted, sent or failed). Handset delivery
-# receipts are not collected, which `dlrSupported: false` states explicitly.
+# The send response is the send-time outcome (accepted, sent or failed). Delivery is
+# confirmed later by a carrier receipt, when the route returns one: see sms-status.
 status="$(px GET "/comms/sms/$(jq -rn --arg id "$message_id" '$id | @uri')")"
 jq -r '.data | "Status lookup: \(.status)", "  dlrSupported: \(.dlrSupported // false)"' <<<"$status"

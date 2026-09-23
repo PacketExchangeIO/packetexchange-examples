@@ -8,10 +8,10 @@ Billed per segment at the route price plus the platform fee. A segment is up to 
 
 ## Good to know
 
-- The status is the **send-time** outcome (`accepted`, `sent` or `failed`), not a handset delivery receipt. Handset receipts are not collected, and the status lookup says so with `dlrSupported: false`.
+- The status in the send response is the **send-time** outcome (`accepted`, `sent` or `failed`). Delivery is confirmed later by a carrier receipt, when the route returns one: follow it with the [sms-status](../sms-status) example or the `sms.delivered` and `sms.failed` webhooks.
 - Omit `routeId` and Smart Routing picks a route for the destination; `strategy` can be `cheapest`, `best_quality` or `balanced`.
 - The `sms.sent` webhook event reports each accepted message.
-- Sending needs the `sms:send` scope. The status lookup is not available to scoped keys; use a full-access key.
+- Sending and the status lookup need the `sms:send` scope.
 
 ## Run
 

@@ -39,8 +39,8 @@ public class Main {
             // cost is a 6-decimal USD string; keep it as text rather than a floating-point number.
             System.out.println("  cost: " + text(sent, "cost"));
 
-            // The status is the send-time outcome (accepted, sent or failed). No handset
-            // delivery receipts are collected, which dlrSupported makes explicit.
+            // The send response is the send-time outcome (accepted, sent or failed). Delivery is
+            // confirmed later by a carrier receipt, when the route returns one: see sms-status.
             String id = URLEncoder.encode(text(sent, "messageId"), StandardCharsets.UTF_8);
             JsonObject lookup = api.send("GET", "/comms/sms/" + id, null, false).getAsJsonObject("data");
             System.out.println("Status lookup: " + text(lookup, "status"));

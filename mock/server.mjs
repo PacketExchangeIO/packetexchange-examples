@@ -20,6 +20,8 @@ const DID_GROUP_ID = '6a1f7c0e-3b4d-4c55-9a8e-2f0d9c1b7e21';
 const DID_SKU_ID = 'b2c4e6f8-1a3c-4e5f-8a9b-0c1d2e3f4a5b';
 const X402_PAY_TO = '0x5e7f3b2a9c1d4e6f8a0b2c4d6e8f0a1b3c5d7e9f';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+// A message that was delivered, confirmed by a carrier receipt, for the sms-status example.
+const DELIVERED_SMS_ID = '5d0c8a1e-2f3b-4c6d-9e7f-8a9b0c1d2e3f';
 
 const E164 = /^\+?[1-9][0-9]{6,14}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,6 +37,7 @@ const ledger = [];
 const dids = new Map();
 const agents = new Map();
 const cliTests = new Map();
+const calls = new Map();
 let balance = 100;
 
 const now = () => new Date().toISOString();
@@ -222,15 +225,71 @@ function sendSms({ body, testKey }) {
   const segments = segmentsFor(message);
   const cost = 0.0065 * segments;
   charge(cost, `SMS to ${to}`, 'api_sms', messageId);
-  const result = { messageId, to, from, status: 'accepted', segments, cost: money(cost), submittedAt: now(), ...(testKey ? { simulated: true } : {}) };
-  messages.set(messageId, result);
+  // A test key simulates the send ("accepted"); a live key reports the hand-off ("sent").
+  const status = testKey ? 'accepted' : 'sent';
+  const result = { messageId, to, from, status, segments, cost: money(cost), submittedAt: now(), ...(testKey ? { simulated: true } : {}), network: null };
+  messages.set(messageId, { ...result, testKey });
   return result;
 }
 
+/** A fixed message whose carrier receipt confirmed delivery, so the full timeline can be shown. */
+function deliveredFixture() {
+  const t = (s) => new Date(Date.now() - s * 1000).toISOString();
+  return {
+    messageId: DELIVERED_SMS_ID, status: 'delivered', to: '+447700900123', from: 'Riverside', segments: 1, errorCode: null,
+    timeline: [
+      { status: 'queued', at: t(95), source: 'platform' },
+      { status: 'sent', at: t(94), source: 'submit' },
+      { status: 'delivered', at: t(88), source: 'carrier_receipt', errorCode: null, carrierStatus: 'DELIVRD', carrierError: '000' },
+    ],
+    awaitingReceipt: false, routeReturnsReceipts: true, dlrSupported: true, cost: '-0.006500',
+    reference: 'SMS to +447700900123', sentAt: t(95),
+  };
+}
+
 function getSms({ params }) {
+  if (params.messageId === DELIVERED_SMS_ID) return deliveredFixture();
   const m = messages.get(params.messageId);
   if (!m) return { messageId: params.messageId, status: 'not_found', message: 'Message ID not found or does not belong to your account.' };
-  return { messageId: m.messageId, status: m.status, dlrSupported: false, cost: m.cost, reference: `SMS to ${m.to}`, sentAt: m.submittedAt };
+  // Without a carrier receipt a live message stays "sent" and awaits one; a test-key
+  // message is simulated and never gets a receipt.
+  const timeline = [
+    { status: 'queued', at: m.submittedAt, source: 'platform' },
+    m.testKey
+      ? { status: 'accepted', at: m.submittedAt, source: 'simulated' }
+      : { status: 'sent', at: m.submittedAt, source: 'submit' },
+  ];
+  return {
+    messageId: m.messageId, status: m.status, to: m.to, from: m.from, segments: m.segments, errorCode: null, timeline,
+    awaitingReceipt: !m.testKey, routeReturnsReceipts: m.testKey ? null : true, dlrSupported: true,
+    ...(m.testKey ? { simulated: true } : {}), cost: `-${m.cost}`, reference: `SMS to ${m.to}`, sentAt: m.submittedAt,
+  };
+}
+
+/** Checks `actions` like the API: 1 to 10 of say, play, gather, pause or hangup (last). */
+function checkActions(c, actions) {
+  if (actions === undefined) return;
+  if (!Array.isArray(actions) || actions.length < 1 || actions.length > 10) {
+    c.fail('actions', 'Expected an array of 1 to 10 actions');
+    return;
+  }
+  const lang = (v) => v === undefined || VOICE_LANGUAGES.includes(v);
+  const text = (v) => typeof v === 'string' && v.trim().length >= 1 && v.length <= 500;
+  const https = (v) => typeof v === 'string' && /^https:\/\/\S+$/i.test(v) && v.length <= 2048;
+  const int = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+  actions.forEach((a, i) => {
+    const keys = a && typeof a === 'object' ? Object.keys(a) : [];
+    const g = a?.gather;
+    const ok = (keys.every((k) => ['say', 'language'].includes(k)) && text(a.say) && lang(a.language))
+      || (keys.length === 1 && https(a.play))
+      || (keys.length === 1 && int(a.pause, 1, 10))
+      || (keys.length === 1 && a.hangup === true && i === actions.length - 1)
+      || (keys.length === 1 && g && typeof g === 'object'
+        && (g.digits === undefined || int(g.digits, 1, 20)) && (g.timeout === undefined || int(g.timeout, 1, 30))
+        && (g.tries === undefined || int(g.tries, 1, 3)) && (g.finishOnKey === undefined || ['#', '*', ''].includes(g.finishOnKey))
+        && (g.say === undefined || text(g.say)) && (g.play === undefined || https(g.play)) && !(g.say && g.play) && lang(g.language));
+    if (!ok) c.fail(`actions.${i}`, 'Invalid call action');
+  });
 }
 
 function makeCall({ body, testKey }) {
@@ -240,20 +299,70 @@ function makeCall({ body, testKey }) {
   c.field('routeId', { pattern: UUID, patternMessage: 'Invalid uuid' });
   c.field('strategy', { oneOf: STRATEGIES });
   const maxDuration = c.field('maxDuration', { type: 'integer', min: 10, max: 3600 }) ?? 300;
+  const isAsync = c.field('async', { type: 'boolean' }) ?? false;
+  c.field('language', { oneOf: VOICE_LANGUAGES });
+  checkActions(c, body?.actions);
   c.done();
   refuseBlocked(to);
 
   const callId = randomUUID();
+  const mode = isAsync ? 'async' : 'sync';
+  const actions = Array.isArray(body.actions) ? body.actions : null;
+  const gathers = actions ? actions.filter((a) => a.gather).length : 0;
   const durationSeconds = Math.min(42, maxDuration);
   const billableSeconds = Math.ceil(durationSeconds / 6) * 6;
   const cost = (billableSeconds / 60) * 0.012;
-  charge(cost, `Call to ${to}`, 'api_call', callId);
+  const createdAt = now();
+  const call = {
+    callId, status: 'ringing', mode, to, from, simulated: testKey, createdAt, ringingAt: createdAt, answeredAt: null,
+    endedAt: null, durationSeconds: null, billableSeconds: null, cost: null, billingIncrement: '6/6',
+    sipResponseCode: null, hangupCause: null, hangupReason: null, error: null, actions, gathered: null,
+    // Mock only: each status read moves a live async call one step on, so pollers finish quickly.
+    reads: 0, gathers, finalCost: cost, durationSeconds_: durationSeconds, billableSeconds_: billableSeconds,
+  };
+  calls.set(callId, call);
+
+  // A live async call returns at once (202) and is followed on GET /comms/calls/{id}. A
+  // test key runs no telephony and no actions, so the call is already finished (200).
+  if (isAsync && !testKey) {
+    return { status: 202, data: { callId, status: 'ringing', mode, to, from, actions: actions?.length ?? 0, statusUrl: `/api/v1/comms/calls/${callId}` } };
+  }
+  finishCall(call, testKey);
   const started = new Date(Date.now() - durationSeconds * 1000).toISOString();
   return {
-    callId, to, from, status: testKey ? 'accepted' : 'answered', sipResponseCode: 200, hangupCause: 'NORMAL_CLEARING',
-    durationSeconds, billableSeconds, cost: money(cost), billingIncrement: '6/6', startedAt: started, completedAt: now(),
-    ...(testKey ? { simulated: true } : {}),
+    status: 200,
+    data: {
+      callId, to, from, status: testKey ? 'accepted' : 'answered', sipResponseCode: 200, hangupCause: 'NORMAL_CLEARING',
+      durationSeconds, billableSeconds, cost: money(cost), billingIncrement: '6/6', startedAt: started, completedAt: now(),
+      ...(testKey ? { simulated: true } : {}), ...(isAsync ? { mode } : {}),
+    },
   };
+}
+
+/** Ends a call as answered and hung up normally, charges it and fills in gathered digits. */
+function finishCall(call, simulated) {
+  const at = now();
+  Object.assign(call, {
+    status: 'completed', answeredAt: call.answeredAt ?? at, endedAt: at, durationSeconds: call.durationSeconds_,
+    billableSeconds: call.billableSeconds_, cost: money(call.finalCost), sipResponseCode: 200, hangupCause: 'NORMAL_CLEARING',
+    hangupReason: 'The call was answered and ended normally.',
+    // Test keys run no actions, so nothing is gathered. Live calls "press 1" on each gather.
+    gathered: !simulated && call.gathers ? Array.from({ length: call.gathers }, (_, index) => ({ index, digits: '1', status: 'received' })) : null,
+  });
+  charge(call.finalCost, `Call to ${call.to}`, 'api_call', call.callId);
+}
+
+function getCall({ params }) {
+  // The API answers 404 for any id that is not one of your calls, well-formed or not.
+  const call = calls.get(params.id);
+  if (!call) throw new ApiError(404, 'NOT_FOUND', 'Call not found');
+  if (call.status === 'ringing' || call.status === 'answered') {
+    call.reads += 1;
+    if (call.reads === 2) Object.assign(call, { status: 'answered', answeredAt: now() });
+    if (call.reads >= 3) finishCall(call, call.simulated);
+  }
+  const { reads, gathers, finalCost, durationSeconds_, billableSeconds_, ...view } = call;
+  return view;
 }
 
 function listCalls({ query }) {
@@ -315,6 +424,63 @@ function resolveRoute({ query }) {
     : (r.asr ?? 50) / Number(r.price);
   routes.sort((a, b) => score(b) - score(a));
   return { strategy, selected: routes[0] ?? null, alternatives: routes.slice(1), count: routes.length };
+}
+
+// ── Number lookup ───────────────────────────────────────────────────────────
+
+/** Prefix-based lookup, shaped like GET /lookup/{number}. UK mobiles, US numbers and Cuba are modelled. */
+function lookupNumber({ params }) {
+  const input = params.number;
+  if (input.trim().length < 1 || input.length > 40) {
+    throw new ApiError(400, 'VALIDATION_ERROR', 'Validation failed', [{ path: 'number', message: 'String must contain at most 40 character(s)' }]);
+  }
+  const raw = input.trim();
+  const d = digits(raw).replace(/^00/, '');
+  const empty = {
+    input, e164: null, internationalFormat: null, country: null, numberType: 'unknown', numberTypeConfidence: 0,
+    operator: null, network: null, matchedPrefix: null, risk: { blocked: false, sanctioned: false, highRisk: false, reasons: [] },
+    pricing: { voice: null, sms: null }, method: 'prefix', cachedAt: now(),
+  };
+  const problem = !d ? 'No digits found.'
+    : !/^(\+|00)/.test(raw) && raw.startsWith('0') ? 'Looks like a national number. Send it in international format, e.g. +447700900123.'
+    : d.length < 7 ? 'Too short for an E.164 number (at least 7 digits).'
+    : d.length > 15 ? 'Too long for an E.164 number (at most 15 digits).'
+    : null;
+  if (problem) return { ...empty, valid: false, reason: problem };
+
+  const price = (type, rate, destination, extra = {}) => ({
+    rate, currency: 'USD', unit: type === 'sms' ? 'msg' : 'min', billingIncrement: type === 'sms' ? null : '6/6',
+    destination, routeId: routesFor(d, type)[0].id, routesServing: 3, ...extra,
+  });
+  const base = { ...empty, valid: true, reason: null, e164: `+${d}` };
+  if (d.startsWith('53')) {
+    return {
+      ...base, internationalFormat: `+53 ${d.slice(2)}`, country: { iso: 'CU', name: 'Cuba', dialCode: '53', basis: 'dial_code' },
+      risk: { blocked: true, sanctioned: true, highRisk: false, reasons: ['Embargoed destination: we do not carry traffic to it.'] },
+    };
+  }
+  if (d.startsWith('447')) {
+    return {
+      ...base, internationalFormat: `+44 ${d.slice(2)}`, country: { iso: 'GB', name: 'United Kingdom', dialCode: '44', basis: 'rate_decks' },
+      numberType: 'mobile', numberTypeConfidence: 1, operator: 'O2', matchedPrefix: d.slice(0, 5),
+      network: { mccMnc: '234-10', operator: 'O2', source: 'range' },
+      pricing: {
+        voice: price('voice', '0.004200', 'United Kingdom-Mobile'),
+        sms: price('sms', '0.005900', 'United Kingdom-Mobile', {
+          network: { mccMnc: '234-10', operator: 'O2', source: 'range', rateBasis: 'network' }, countryRate: '0.006100',
+        }),
+      },
+    };
+  }
+  const us = d.startsWith('1');
+  return {
+    ...base, internationalFormat: us ? `+1 ${d.slice(1)}` : `+${d}`,
+    country: us ? { iso: 'US', name: 'United States', dialCode: '1', basis: 'rate_decks' } : null,
+    numberType: us ? 'fixed' : 'unknown', numberTypeConfidence: us ? 0.67 : 0, matchedPrefix: us ? d.slice(0, 4) : null,
+    pricing: us
+      ? { voice: price('voice', '0.004200', 'United States'), sms: price('sms', '0.006100', 'United States', { network: null, countryRate: null }) }
+      : { voice: null, sms: null },
+  };
 }
 
 // ── Phone numbers ───────────────────────────────────────────────────────────
@@ -533,6 +699,8 @@ const routes = [
   ['GET', '/comms/sms/:messageId', getSms],
   ['POST', '/comms/calls', makeCall],
   ['GET', '/comms/calls', listCalls],
+  ['GET', '/comms/calls/:id', getCall],
+  ['GET', '/lookup/:number', lookupNumber, { auth: 'optional' }],
   ['GET', '/routes/price-number', priceNumber, { auth: 'optional' }],
   ['GET', '/routes/resolve', resolveRoute],
   ['GET', '/dids/search', searchDids],

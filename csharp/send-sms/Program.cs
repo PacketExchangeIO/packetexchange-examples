@@ -25,8 +25,8 @@ try
     Console.WriteLine($"  segments: {sent.Segments}");
     Console.WriteLine($"  cost: {sent.Cost}");
 
-    // The status is the send-time outcome (accepted, sent or failed). No handset
-    // delivery receipts are collected, which dlrSupported makes explicit.
+    // The send response is the send-time outcome (accepted, sent or failed). Delivery is
+    // confirmed later by a carrier receipt, when the route returns one: see sms-status.
     var lookup = (await api.SendAsync<Envelope<SmsStatus>>(
         HttpMethod.Get, "/comms/sms/" + Uri.EscapeDataString(sent.MessageId))).Data;
     Console.WriteLine($"Status lookup: {lookup.Status}");

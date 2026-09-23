@@ -14,8 +14,9 @@
 Each example is one short, self-contained program that calls the
 [PacketExchange REST API](https://packetexchange.io/api-docs) directly over HTTP, with no SDK
 in between, so you can see every request and response. Verify a phone number, send a
-transactional SMS, place a call, compare route prices for a number, receive signed webhooks,
-buy a phone number, build an AI voice agent, test a caller ID, or top up with USDC.
+transactional SMS and follow its delivery, place a call that speaks and collects a key press,
+look up and price a number, receive signed webhooks, buy a phone number, build an AI voice
+agent, test a caller ID, or top up with USDC.
 
 The same example behaves the same way in every language: the same arguments, the same
 output and the same error handling (see [CONVENTIONS.md](CONVENTIONS.md)). Every example
@@ -28,8 +29,11 @@ runs in CI against a local [mock API](mock), never the live one.
 | **Verify by SMS**: send a one-time code, check it | [curl](curl/verify-sms) | [Node.js](node/verify-sms) | [Python](python/verify-sms) | [PHP](php/verify-sms) | [Go](go/verify-sms) | [Java](java/verify-sms) | [C#](csharp/verify-sms) | [Ruby](ruby/verify-sms) |
 | **Verify by voice**: the same, read out by a call | [curl](curl/verify-voice) | [Node.js](node/verify-voice) | [Python](python/verify-voice) | [PHP](php/verify-voice) | [Go](go/verify-voice) | [Java](java/verify-voice) | [C#](csharp/verify-voice) | [Ruby](ruby/verify-voice) |
 | **Send an SMS**: a transactional reminder and its status | [curl](curl/send-sms) | [Node.js](node/send-sms) | [Python](python/send-sms) | [PHP](php/send-sms) | [Go](go/send-sms) | [Java](java/send-sms) | [C#](csharp/send-sms) | [Ruby](ruby/send-sms) |
+| **SMS delivery status**: the timeline from queued to delivered | [curl](curl/sms-status) | [Node.js](node/sms-status) | [Python](python/sms-status) | [PHP](php/sms-status) | [Go](go/sms-status) | [Java](java/sms-status) | [C#](csharp/sms-status) | [Ruby](ruby/sms-status) |
 | **Make a call**: outcome, duration and cost | [curl](curl/make-call) | [Node.js](node/make-call) | [Python](python/make-call) | [PHP](php/make-call) | [Go](go/make-call) | [Java](java/make-call) | [C#](csharp/make-call) | [Ruby](ruby/make-call) |
+| **Call with actions**: speak, collect a key press, follow the call | [curl](curl/call-with-actions) | [Node.js](node/call-with-actions) | [Python](python/call-with-actions) | [PHP](php/call-with-actions) | [Go](go/call-with-actions) | [Java](java/call-with-actions) | [C#](csharp/call-with-actions) | [Ruby](ruby/call-with-actions) |
 | **Price a number**: rank routes by real cost, preview routing | [curl](curl/price-a-number) | [Node.js](node/price-a-number) | [Python](python/price-a-number) | [PHP](php/price-a-number) | [Go](go/price-a-number) | [Java](java/price-a-number) | [C#](csharp/price-a-number) | [Ruby](ruby/price-a-number) |
+| **Number lookup**: type, network, risk flags and cheapest price | [curl](curl/number-lookup) | [Node.js](node/number-lookup) | [Python](python/number-lookup) | [PHP](php/number-lookup) | [Go](go/number-lookup) | [Java](java/number-lookup) | [C#](csharp/number-lookup) | [Ruby](ruby/number-lookup) |
 | **Webhooks**: receive deliveries and verify signatures | [curl](curl/webhooks) | [Node.js](node/webhooks) | [Python](python/webhooks) | [PHP](php/webhooks) | [Go](go/webhooks) | [Java](java/webhooks) | [C#](csharp/webhooks) | [Ruby](ruby/webhooks) |
 | **Phone numbers**: search, buy and route a number | [curl](curl/phone-numbers) | [Node.js](node/phone-numbers) | [Python](python/phone-numbers) | [PHP](php/phone-numbers) | [Go](go/phone-numbers) | [Java](java/phone-numbers) | [C#](csharp/phone-numbers) | [Ruby](ruby/phone-numbers) |
 | **AI voice agent**: create, simulate, attach to a campaign | [curl](curl/ai-voice-agent) | [Node.js](node/ai-voice-agent) | [Python](python/ai-voice-agent) | [PHP](php/ai-voice-agent) | [Go](go/ai-voice-agent) | [Java](java/ai-voice-agent) | [C#](csharp/ai-voice-agent) | [Ruby](ruby/ai-voice-agent) |
@@ -90,7 +94,8 @@ See [`.env.example`](.env.example).
 
 Most examples spend credit, because they do real things: a verification code is billed as
 the SMS or call that carries it, messages per segment, calls per billing increment, and a
-caller-ID test $0.50, charged only if the route rang. Each example's README states its cost.
+caller-ID test $0.50, charged only if the route rang. Looking up a number and reading a
+message's or call's status are free. Each example's README states its cost.
 
 Two examples go further and require an explicit `--confirm` flag before they spend:
 `phone-numbers buy` (setup price plus the first month) and `x402-topup` (moves USDC from your

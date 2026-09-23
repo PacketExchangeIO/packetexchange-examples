@@ -43,9 +43,11 @@ scripts/with-mock.sh node/run-examples.sh
 | `POST` | `/verify/check` | Single use, 5 attempts, expiry, like the real API |
 | `GET` | `/verify/{id}` | Returns the verification state, never the code |
 | `POST` | `/comms/sms` | Segments counted as GSM-7 or UCS-2 |
-| `GET` | `/comms/sms/{messageId}` | Unknown ids answer `200` with status `not_found`, like the real API |
-| `POST` | `/comms/calls` | Returns at once with a 42-second answered call (capped at `maxDuration`) |
+| `GET` | `/comms/sms/{messageId}` | Delivery status and timeline. Unknown ids answer `200` with status `not_found`, like the real API |
+| `POST` | `/comms/calls` | Checks `actions`. Returns a 42-second answered call (capped at `maxDuration`); with `async: true` and a live-style key, answers `202` instead |
 | `GET` | `/comms/calls` | Ledger entries for calls made against this mock |
+| `GET` | `/comms/calls/{id}` | Call status; a live async call moves one step (`ringing`, `answered`, `completed`) per read |
+| `GET` | `/lookup/{number}` | UK mobiles, US numbers and an embargoed destination (`+53`); malformed numbers answer `valid: false` |
 | `GET` | `/routes/price-number` | Three sample routes; numbers starting `53` return `notice: "sanctioned"` |
 | `GET` | `/routes/resolve` | Ranks the same routes by `strategy` |
 | `GET` | `/dids/search` | One number group (below) |
@@ -64,7 +66,8 @@ scripts/with-mock.sh node/run-examples.sh
 
 | Value | Meaning |
 | --- | --- |
-| Any key starting with `wmmn_` | Accepted. Keys starting `wmmn_test_sk_` behave like test keys (`simulated: true`, `testCode`) |
+| Any key starting with `wmmn_` | Accepted. Keys starting `wmmn_test_sk_` behave like test keys (`simulated: true`, `testCode`), keys starting `wmmn_live_sk_` like live keys |
+| `5d0c8a1e-2f3b-4c6d-9e7f-8a9b0c1d2e3f` | A delivered SMS with a carrier receipt, for `GET /comms/sms/{messageId}` |
 | `123456` | The verification code |
 | `+15005550000` | Refused with `400 VALIDATION_ERROR` by every send, to show the error path |
 | `6a1f7c0e-3b4d-4c55-9a8e-2f0d9c1b7e21` | The number group id returned by `/dids/search` |

@@ -10,6 +10,7 @@ source ../scripts/lib.sh
 group=6a1f7c0e-3b4d-4c55-9a8e-2f0d9c1b7e21
 sku=b2c4e6f8-1a3c-4e5f-8a9b-0c1d2e3f4a5b
 some_id=3d4c2b1a-9e8f-4a7b-8c6d-5e4f3a2b1c0d
+delivered_sms=5d0c8a1e-2f3b-4c6d-9e7f-8a9b0c1d2e3f
 
 expect_output 0 "Check result: approved" node verify-sms/index.ts +14155550100 <<<"123456"
 expect_output 0 "Check result: denied (wrong_code)" node verify-sms/index.ts +14155550100 <<<"000000"
@@ -28,6 +29,14 @@ expect_output 0 "now routes to sip sip.example.com:5060" node phone-numbers/inde
 expect_output 0 "Simulated reply:" node ai-voice-agent/index.ts
 expect_output 0 "Attached agent to campaign $some_id" node ai-voice-agent/index.ts "$some_id"
 expect_output 0 "displayedCorrectly: true" node caller-id-test/index.ts "$some_id" +14155550199 "United States"
+expect_output 0 "sms: 0.005900/msg" node number-lookup/index.ts +447700900123
+expect_output 0 "Not a valid number:" node number-lookup/index.ts 07700900123
+# A live-style key makes the mock answer 202 and move the call on at each status read.
+PACKETEXCHANGE_API_KEY=wmmn_live_sk_mock expect_output 0 "keyPressed: 1" node call-with-actions/index.ts +14155550100 +14155550199
+expect_output 0 "keyPressed: none" node call-with-actions/index.ts +14155550100 +14155550199
+expect_output 1 "Error 400 VALIDATION_ERROR" node call-with-actions/index.ts +15005550000 +14155550199
+expect_output 0 "delivered at" node sms-status/index.ts "$delivered_sms"
+expect_output 1 "No message $some_id" node sms-status/index.ts "$some_id"
 
 # x402: a throwaway wallet key, generated for this run and never stored.
 X402_PRIVATE_KEY="0x$(openssl rand -hex 32)"

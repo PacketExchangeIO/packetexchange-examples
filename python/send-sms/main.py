@@ -88,8 +88,8 @@ def main() -> None:
     print(f"  segments: {sent['segments']}")
     print(f"  cost: {sent['cost']}")
 
-    # The status is the send-time outcome (accepted, sent or failed). Handset delivery
-    # receipts are not collected, which `dlrSupported: false` states explicitly.
+    # The send response is the send-time outcome (accepted, sent or failed). Delivery is
+    # confirmed later by a carrier receipt, when the route returns one: see sms-status.
     status = api("GET", f"/comms/sms/{quote(sent['messageId'], safe='')}")["data"]
     print(f"Status lookup: {status['status']}")
     print(f"  dlrSupported: {str(status.get('dlrSupported', False)).lower()}")
