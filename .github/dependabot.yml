@@ -9,25 +9,49 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # Major versions can change build tooling or APIs; they are upgraded by hand after testing.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "pip"
     directory: "/python"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # Major versions can change build tooling or APIs; they are upgraded by hand after testing.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "gomod"
     directory: "/go"
     schedule:
       interval: "weekly"
+    # Major versions can change build tooling or APIs; they are upgraded by hand after testing.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "maven"
     directory: "/java"
     schedule:
       interval: "weekly"
+    # Major versions can change build tooling or APIs; they are upgraded by hand after testing.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "nuget"
     directories:
       - "/csharp/*"
     schedule:
       interval: "weekly"
+    # Major versions can change build tooling or APIs; they are upgraded by hand after testing.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "bundler"
     directory: "/ruby"
     schedule:
       interval: "weekly"
+    # Major versions can change build tooling or APIs; they are upgraded by hand after testing.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
