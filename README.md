@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="assets/logo.png" alt="PacketExchange" width="96" height="96">
+  <a href="https://packetexchange.io"><img src="assets/banner.png" alt="PacketExchange API examples" width="100%"></a>
 </p>
-
-<h1 align="center">PacketExchange API examples</h1>
 
 <p align="center">Runnable examples for the PacketExchange voice and SMS API in eight languages.</p>
 
